@@ -1,4 +1,4 @@
 .env
 rag
 .venv
-__pycashe__
+__pycache__
