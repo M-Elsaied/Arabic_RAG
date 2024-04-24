@@ -14,7 +14,7 @@ This repository contains a system for processing user queries and generating res
 5. **Search in Vector Database**: Embedded queries are compared with chunks of text stored in the vector database using cosine similarity, identifying relevant matches.
 6. **Retrieve Chunks**: Text chunks with high cosine similarity scores to the query are retrieved from the vector database, forming the basis for further analysis.
 7. **Prompt Generation**: Retrieved text chunks and the original query are passed to the OpenAI language model (GPT-4) to generate a contextual prompt, providing additional context for answer generation.
-8. **Answer Generation**: The contextual prompt and retrieved text chunks serve as input to the GPT-3.5 model, which generates a response based on the provided context and query.
+8. **Answer Generation**: The contextual prompt and retrieved text chunks serve as input to the GPT-4 model, which generates a response based on the provided context and query.
 9. **Return Response**: The generated answer is sent back to the frontend for display to the user, completing the query-response cycle.
 
 ## Setup Steps
