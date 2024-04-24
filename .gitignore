@@ -1,3 +1,4 @@
 .env
 rag
 .venv
+__pycashe__
