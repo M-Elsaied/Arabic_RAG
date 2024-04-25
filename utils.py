@@ -47,9 +47,9 @@ class IncomingFileProcessor():
       for pg in pages:
         pg_splits = textsplit.split_text(pg.page_content)
         for pg_sub_split in pg_splits:
-          cleaned_text = clean_text(pg_sub_split)
+          # pg_sub_split = clean_text(pg_sub_split)
           metadata = {'source': filename}
-          doc_string = Document(page_content=cleaned_text, metadata = metadata)
+          doc_string = Document(page_content=pg_sub_split, metadata = metadata)
           doc_list.append(doc_string)
       logger.info("Successfully split the PDF file")
       return doc_list
@@ -124,10 +124,10 @@ def arabic_qa(query, vectorstore):
     num_chunks = 3
     retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": num_chunks})
     template = """
-      Answer the question in your own words as truthfully as possible from the following pieces of context:
+      أنت مساعد مفيد وصادق ومتخصص في الاقتصاد والأوراق المالية، حاول على قدرالمستطاع أن تجاوب بصدق علما أن المعلومات التالية متوفرة لك:
         {context}
 
-        Question: {question}
+        السؤال : {question}
     """
     prompt = ChatPromptTemplate.from_template(template)
     setup_and_retrieval = RunnableParallel(
