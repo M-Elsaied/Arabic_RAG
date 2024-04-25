@@ -47,8 +47,9 @@ class IncomingFileProcessor():
       for pg in pages:
         pg_splits = textsplit.split_text(pg.page_content)
         for pg_sub_split in pg_splits:
+          cleaned_text = clean_text(pg_sub_split)
           metadata = {'source': filename}
-          doc_string = Document(page_content=pg_sub_split, metadata = metadata)
+          doc_string = Document(page_content=cleaned_text, metadata = metadata)
           doc_list.append(doc_string)
       logger.info("Successfully split the PDF file")
       return doc_list
@@ -142,3 +143,44 @@ def arabic_qa(query, vectorstore):
     return response
   except Exception as e:
     raise Exception('open AI Key error')
+##########################TEXT PREPROCESSING AND CLEANING##########################
+import re
+import nltk
+# nltk.download('punkt')
+# nltk.download('wordnet')
+# nltk.download('omw-1.4')
+def normalize_whitespace(text):
+    text = re.sub(r'\s+', ' ', text)  # Replace multiple spaces with a single space
+    return text.strip()
+def remove_headers_footers(text):
+    # Example pattern: headers or footers to identify and remove
+    header_footer_pattern = re.compile(r'Page \d+ of \d+|Confidential')
+    return header_footer_pattern.sub('', text)
+def remove_punctuation(text):
+    # Remove all characters except words and space
+    return re.sub(r'[^\w\s]', '', text)
+def to_lowercase(text):
+    return text.lower()
+def remove_non_textual_elements(text):
+    # Replace or remove specific non-text patterns
+    return re.sub(r'[\u200b-\u200f\u202a-\u202e]', '', text)  # Removes zero-width spaces and similar characters
+def remove_arabic_diacritics(text):
+    # Arabic specific diacritics removal
+    diacritics_pattern = re.compile(r'[\u064B-\u065F\u06D6-\u06DC\u06DF-\u06E8\u06EA-\u06ED]')
+    return diacritics_pattern.sub('', text)
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
+def remove_stop_words(text, language='arabic'):
+    words = word_tokenize(text)
+    stop_words = set(stopwords.words(language))
+    return ' '.join([word for word in words if word not in stop_words])
+def clean_text(text):
+    text = normalize_whitespace(text)
+    text = remove_headers_footers(text)
+    text = remove_punctuation(text)
+    text = to_lowercase(text)
+    text = remove_non_textual_elements(text)
+    text = remove_arabic_diacritics(text)
+    # text = remove_stop_words(text)  # Optional: Use if stop words are to be removed
+    return text
