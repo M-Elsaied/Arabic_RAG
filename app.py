@@ -41,7 +41,7 @@ if uploaded_files:
 
     # Process the files and create/update vector database in session
     if not st.session_state['db']:
-        create_vector_db_for_files(files_info)
+        # create_vector_db_for_files(files_info)
         embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
         db = load_local_vectordb_using_qdrant("testing_arabic", embeddings)
         st.session_state['db'] = db
