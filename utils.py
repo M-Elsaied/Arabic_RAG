@@ -10,6 +10,7 @@ from langchain_community.document_loaders import  Docx2txtLoader,PyMuPDFLoader
 from langchain_community.vectorstores import Qdrant
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.docstore.document import Document
+from langchain.chains import RetrievalQAWithSourcesChain
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
@@ -144,37 +145,101 @@ def arabic_qa(query, vectorstore):
   except Exception as e:
     raise Exception('open AI Key error')
 
-#PSYNTHESIZED ANSWER
+def arabic_qa_citation(query, vectorstore):
+    logger.info('Starting arabic_qa_citation')
+    try:
+        num_chunks = 1
+        chain_type_kwargs = {}  # Define any necessary kwargs for your chain type
+
+        # Configure the chain with specific settings
+        chain = RetrievalQAWithSourcesChain.from_chain_type(
+            llm=ChatOpenAI(model="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"), temperature=0.3),
+            chain_type="stuff",  # Adjust this as per your actual usage or configuration
+            retriever=vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": num_chunks}),
+            return_source_documents=True,
+            chain_type_kwargs=chain_type_kwargs
+        )
+
+        logger.debug(f'Chain configured and ready to invoke with query: {query}')
+        result = chain(query)
+        logger.info('Query processed with chain')
+
+        # Parse the answer using StrOutputParser
+        output_parser = StrOutputParser()
+        response_text = output_parser.invoke(result['answer'])
+
+        # Extract sources from the source documents, mapping them to readable references
+        sources = list(set([doc.metadata['filename'] for doc in result['source_documents']]))
+        logger.info(f'Extracted the sources.... {sources}')
+        logger.info('Result formatted successfully')
+        return response_text, sources
+    except Exception as e:
+        logger.exception('Error occurred in arabic_qa_citation')
+        raise Exception(f'Error in arabic_qa_citation: {e}')
+
+def map_reference_to_doc(reference_name):
+    try:
+        logging.info(f'Mapping reference... {reference_name}')
+        parts = reference_name.split('_')
+        if len(parts) < 2:
+            logger.error(f"Invalid reference format received: {reference_name}")
+            return 'Unknown Document', 0  # Default values in case of error
+
+        doc_type = parts[0]
+        page_number = parts[1].split('.')[0]  # Ignore anything after the dot for page numbers
+
+        doc_map = {
+            'actual': 'Actual Budget Report 2022.pdf',
+            'tadawel': 'Press Release - 2022 Results (Stock Market).pdf'
+        }
+
+        document = doc_map.get(doc_type, 'Unknown Document')
+        return document, int(page_number)
+    except Exception as e:
+        logger.exception(f"Failed to map reference '{reference_name}' due to error: {e}")
+        return 'Unknown Document', 0  # Default values in case of exception
+
+
+#SYNTHESIZED ANSWER
 def synthesize_responses(query, db_files, db_tables):
+    logger.info('Starting synthesize_responses')
     try:
         query = clean_text(query)
-        # Get answers from files vector store
+        logger.debug(f'Query cleaned: {query}')
+        model = ChatOpenAI(model="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"), temperature=0.3)
+
+
         response_files = arabic_qa(query, db_files)
+        logger.info('Response from files vector store obtained')
 
-        # Get answers from tables vector store
-        response_tables = arabic_qa(query, db_tables)
+        response_tables, references = arabic_qa_citation(query, db_tables)
+        logger.info('Response and references from tables vector store obtained')
 
-        # Prepare the combined context for synthesis
+        reference_links = []
+        for ref in references:
+            doc, page = map_reference_to_doc(ref)
+            link = f"[Open {doc} at page {page}](./docs/{doc}#page={page})"
+            reference_links.append(link)
+        logger.debug(f'Reference links generated: {reference_links}')
+
         combined_answer = f"Response from files data: {response_files}\n\nResponse from tables data: {response_tables}"
-
-        # Synthesis prompt
         synthesis_template = """
         Considering the information provided from different sources, synthesize a comprehensive response:
         {combined_answers}
         """
 
-        # Setup model and generate synthesized response
-        model = ChatOpenAI(model="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"), temperature=0.5)
         synthesis_prompt = synthesis_template.format(combined_answers=combined_answer)
         synthesized_prompt_answer = model.invoke(synthesis_prompt)
-        # Parse the synthesized response
+        #parse the response
         output_parser = StrOutputParser()
+
         synthesized_response = output_parser.invoke(synthesized_prompt_answer)
 
-        return synthesized_response
+        logger.info('synthesize_responses completed successfully')
+        return synthesized_response, reference_links
     except Exception as e:
-       raise Exception(f'An error occurred during the synthesis process: {e}')
-
+        logger.exception('Error occurred in synthesize_responses')
+        raise Exception(f'An error occurred during the synthesis process: {e}')
 #hybrid prompt
 
 def arabic_qa_files_and_tables(query, db_files, db_tables):

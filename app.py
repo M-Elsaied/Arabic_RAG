@@ -50,7 +50,7 @@ if uploaded_files:
         st.success('Database updated with uploaded files!')
 
 # User input for queries
-user_prompt = st.text_input('Enter Your Query here..........')
+user_prompt = st.text_input('Enter Your Query here...')
 
 # Button to trigger the response generation
 if st.button("Press Enter"):
@@ -60,13 +60,44 @@ if st.button("Press Enter"):
                 إن الله مع الصابرين""")
 
         # st.session_state['response'] = arabic_qa(user_prompt, st.session_state['db'])
-        st.session_state['response'] = synthesize_responses(user_prompt, st.session_state['db'], st.session_state['db_tables'])
+        response, reference_links = synthesize_responses(user_prompt, st.session_state['db'], st.session_state['db_tables'])
+
+        # Save the response and links in the session state
+        st.session_state['response'] = response
+        st.session_state['reference_links'] = reference_links
     else:
         st.error("No database found. Please upload a file first.")
 
+# Function to get the base64 encoding of the PDF file
+def get_pdf_base64(file_path):
+    with open(file_path, "rb") as pdf_file:
+        encoded = base64.b64encode(pdf_file.read()).decode('utf-8')
+    return encoded
+
 # Display the response
-if st.session_state['response']:
-    message(st.session_state['response'])
+if 'response' in st.session_state and st.session_state['response']:
+    st.markdown(st.session_state['response'])
+
+    if 'reference_links' in st.session_state and st.session_state['reference_links']:
+        st.markdown("## Reference Document:")
+        # Get the first link from the list
+        link = st.session_state['reference_links'][0]
+
+        # Extract the document name and page number from the link
+        start = link.find('(') + 1
+        end = link.find(')')
+        url = link[start:end]
+        doc_path, page = url.split('#page=')
+        full_path = os.path.join('docs', doc_path.replace('./docs/', ''))  # Correct the path as needed
+
+        # Check if the PDF file exists
+        if os.path.exists(full_path):
+            base64_pdf = get_pdf_base64(full_path)
+            pdf_display = f'<embed src="data:application/pdf;base64,{base64_pdf}#page={page}" width="700" height="1000" type="application/pdf">'
+            st.markdown(pdf_display, unsafe_allow_html=True)
+        else:
+            st.error(f"File not found: {full_path}")
+
 
 
 # Button to trigger the response generation
